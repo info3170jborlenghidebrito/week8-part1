@@ -4,18 +4,26 @@ import { ShoppingCart } from '../models/shopping-cart';
 import { Observable, Observer } from 'rxjs';
 import { ProductsService } from './products.service';
 import { CartItem } from '../models/cart-item';
+import { LocalStorageService } from './storage.service';
+
+const CART_KEY = 'cart';
 
 @Injectable({
   providedIn: 'root',
 })
 export class CartService {
+  private _storage: Storage;
   private _subscriptionObservable: Observable<ShoppingCart>;
   private _subscribers: Array<Observer<ShoppingCart>> = new Array<
     Observer<ShoppingCart>
   >();
   private _products: Product[];
 
-  constructor(private _productService: ProductsService) {
+  constructor(
+    private _productService: ProductsService,
+    private _storageService: LocalStorageService
+  ) {
+    this._storage = this._storageService.get();
     //this._productService.all().subscribe((products)=>this._products = products);
     this._products = this._productService.getProducts();
     this._subscriptionObservable = new Observable<ShoppingCart>(
@@ -48,7 +56,7 @@ export class CartService {
     cart.items = cart.items.filter((cartItem) => cartItem.quantity > 0);
 
     this.calculateCart(cart);
-    //this.save(cart);
+    this.save(cart);
     this.dispatch(cart);
   }
 
@@ -64,11 +72,16 @@ export class CartService {
 
   private retrieve(): ShoppingCart {
     const cart = new ShoppingCart();
-
+    const storedCart = this._storage.getItem(CART_KEY);
+    if (storedCart) {
+      cart.updateFrom(JSON.parse(storedCart));
+    }
     return cart;
   }
 
-  private save(cart: ShoppingCart): void {}
+  private save(cart: ShoppingCart): void {
+    this._storage.setItem(CART_KEY, JSON.stringify(cart));
+  }
 
   private dispatch(cart: ShoppingCart): void {
     this._subscribers.forEach((sub) => {
